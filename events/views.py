@@ -26,12 +26,15 @@ class EventViewSet(viewsets.ModelViewSet):
         OrderingFilter,
     ]
 
-    filterset_fields = ["location", "organizer"]
+    filterset_fields = [
+        "location",
+        "organizer__username"
+    ]
 
     search_fields = [
         "title",
         "location",
-        "organizer"
+        "organizer__username"
     ]
 
     ordering_fields = [
@@ -127,7 +130,7 @@ class EventViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "list":
             return EventListSerializer
-        if self.action == "create":
+        if self.action in ("create", "update", "partial_update"):
             return EventCreateSerializer
 
         return EventDetailSerializer

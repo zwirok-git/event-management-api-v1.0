@@ -62,18 +62,33 @@ class EventCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs: dict) -> dict:
         organizer = self.context["request"].user
-        location = attrs["location"]
-        start_date = attrs["start_date"]
-        title = attrs["title"]
+
+        title = attrs.get(
+            "title",
+            self.instance.title if self.instance else None,
+        )
+        location = attrs.get(
+            "location",
+            self.instance.location if self.instance else None,
+        )
+        start_date = attrs.get(
+            "start_date",
+            self.instance.start_date if self.instance else None,
+        )
 
         duplicate_exists = Event.objects.filter(
             organizer=organizer,
             title__iexact=title,
             location__iexact=location,
             start_date=start_date,
-        ).exists()
+        )
 
-        if duplicate_exists:
+        if self.instance:
+            duplicate_exists = duplicate_exists.exclude(
+                pk=self.instance.pk
+            )
+
+        if duplicate_exists.exists():
             raise serializers.ValidationError(
                 {
                     "start_date": (
@@ -137,7 +152,7 @@ class EventOrganizerDetailSerializer(EventDetailSerializer):
 class EventListSerializer(serializers.ModelSerializer):
     members_count = serializers.IntegerField(read_only=True)
     start_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
-    organizer = UserOrganizerInfoSerializer()
+    organizer = UserOrganizerInfoSerializer(read_only=True)
 
     class Meta:
         model = Event

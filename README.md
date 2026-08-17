@@ -17,19 +17,23 @@ REST API for creating and managing events, user registration, event participatio
 
 ## Features
 
+- REST API built with Django REST Framework
 - User registration
 - JWT authentication and token refresh
 - Current-user (`me`) endpoint
-- Create, list, and retrieve events
+- Create, list, retrieve, update, and delete events
+- Organizer-specific event details
 - Event registration / unregistration
-- Organizer-only participant list
-- Event capacity management
-- `members_count` and `left_places`
-- Search by event title and location
-- Filtering by location
+- Organizer cannot register for their own event
+- Event capacity validation
+- Registration is closed once the event has started
+- `members_count`, `left_places`, and `is_registered`
+- Search by event title, location, and organizer username
+- Filtering by location and organizer username
 - Ordering by start date, title, and maximum capacity
-- Pagination
+- Limit/offset pagination
 - Automatic archiving of finished events with Celery Beat
+- Django Admin for users and events
 - OpenAPI schema and Swagger UI
 - PostgreSQL and Redis through Docker Compose
 
@@ -126,7 +130,7 @@ GET /api/events/
 
 The event list is publicly available.
 
-Events that have been archived are excluded from the queryset.
+Archived events are excluded from the public event queryset.
 
 ### Create event
 
@@ -150,6 +154,12 @@ Example:
 
 The organizer is taken from the authenticated user and cannot be supplied by the client.
 
+The start date cannot be in the past.
+
+The title and location are normalized by trimming surrounding whitespace.
+
+An organizer cannot create another event with the same title, location, and start time.
+
 ### Event details
 
 ```http
@@ -162,6 +172,32 @@ The response depends on the authenticated user:
 
 - Public users receive public event information.
 - The event organizer additionally receives the list of registered members.
+- `is_registered` indicates whether the authenticated user is registered for the event.
+
+### Update an event
+
+```http
+PUT /api/events/{id}/
+PATCH /api/events/{id}/
+```
+
+Only the event organizer can update the event.
+
+An event cannot be updated after a participant has registered for it.
+
+Update operations use a database transaction and row-level locking with `select_for_update()` to protect this business rule when registration and modification happen concurrently.
+
+### Delete an event
+
+```http
+DELETE /api/events/{id}/
+```
+
+Only the event organizer can delete the event.
+
+An event cannot be deleted after a participant has registered for it.
+
+Delete operations use a database transaction and row-level locking with `select_for_update()`.
 
 ### Register for an event
 
@@ -175,8 +211,10 @@ A user cannot:
 
 - register twice;
 - register for their own event;
-- register after the event has started;
-- register when the event is full.
+- register when the event is full;
+- register after the event has started.
+
+Registration uses a database transaction and row-level locking to prevent concurrent registration from bypassing event capacity or update/delete restrictions.
 
 ### Unregister from an event
 
@@ -186,11 +224,9 @@ DELETE /api/events/{id}/unregister/
 
 Authentication is required.
 
-### Event deletion
+A user can unregister only if they are currently registered for the event.
 
-Events are intentionally not exposed through `DELETE /api/events/{id}/`.
-
-Finished events are archived automatically instead.
+A successful unregistration returns HTTP `204 No Content`.
 
 ## Filtering, Search and Ordering
 
@@ -202,9 +238,15 @@ Filter by location:
 GET /api/events/?location=Kyiv
 ```
 
+Filter by organizer username:
+
+```http
+GET /api/events/?organizer__username=alex
+```
+
 ### Search
 
-Search by title or location:
+Search by title, location, or organizer username:
 
 ```http
 GET /api/events/?search=python
@@ -224,6 +266,7 @@ Examples:
 GET /api/events/?ordering=start_date
 GET /api/events/?ordering=-start_date
 GET /api/events/?ordering=title
+GET /api/events/?ordering=-max_members
 ```
 
 ### Combining parameters
@@ -261,12 +304,56 @@ events.tasks.archive_finished_events
 runs daily at:
 
 ```text
-00:01 UTC
+00:01 Europe/Kyiv
 ```
+
+The Django project timezone and Celery timezone are configured as `Europe/Kyiv`.
 
 It marks events whose `start_date` has passed as archived.
 
 Archived events are no longer returned by the public event queryset.
+
+## Business Logic and Concurrency
+
+The main event lifecycle is:
+
+```text
+Create event
+     |
+     v
+No registered participants
+     |
+     +----> Organizer can update/delete
+     |
+     +----> Users can register
+                    |
+                    v
+          Registered participants
+                    |
+                    +----> Update/Delete blocked
+                    |
+                    v
+             Event start time
+                    |
+                    v
+                 Archived
+```
+
+Registration, update, and delete operations use database transactions with row-level locking (`select_for_update`) to prevent concurrent operations from bypassing the event's business rules.
+
+Unregistration intentionally does not use row-level locking because it does not participate in the critical registration/capacity/update/delete consistency path.
+
+## Django Admin
+
+Django Admin is available at:
+
+```text
+http://localhost:8000/admin/
+```
+
+The project registers Users and Events.
+
+Event Admin supports filtering by archived status, start date, and location, searching by title, location, and organizer username, and ordering by start date.
 
 ## Project Structure
 
@@ -298,6 +385,7 @@ event-management-api/
 ├── Dockerfile
 ├── docker-compose.yaml
 ├── requirements.txt
+├── .env.example
 └── manage.py
 ```
 
@@ -312,6 +400,8 @@ event-management-api/
 
 Create a `.env` file in the project root.
 
+Use `.env.example` as a template.
+
 Example:
 
 ```env
@@ -322,6 +412,9 @@ POSTGRES_PASSWORD=postgres
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 CELERY_BROKER_URL=redis://redis:6379/0
+
+DEBUG=True
+ALLOWED_HOSTS=localhost,127.0.0.1
 ```
 
 Do not commit `.env` to the repository.
@@ -347,7 +440,7 @@ beat    Celery Beat scheduler
 The API will be available at:
 
 ```text
-http://localhost:8000/
+http://localhost:8000/api/
 ```
 
 Swagger:
