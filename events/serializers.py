@@ -1,5 +1,8 @@
+from datetime import datetime
+
 from django.utils import timezone
 from rest_framework import serializers
+
 from events.models import Event
 from users.serializers import OrganizerInfoSerializer, UserEventListSerializer
 
@@ -20,7 +23,7 @@ class CreateEventSerializer(serializers.ModelSerializer):
             "max_members",
         ]
 
-    def validate_start_date(self, date):
+    def validate_start_date(self, date: datetime) -> datetime:
         if date < timezone.now():
             raise serializers.ValidationError(
                 "The event start date cannot be in the past."
@@ -28,7 +31,7 @@ class CreateEventSerializer(serializers.ModelSerializer):
 
         return date
 
-    def validate_location(self, location_name):
+    def validate_location(self, location_name: str) -> str:
         clean_location_name = location_name.strip()
 
         if len(clean_location_name) < 3:
@@ -38,12 +41,13 @@ class CreateEventSerializer(serializers.ModelSerializer):
 
         return clean_location_name
 
-    def validate_title(self, title_text):
+    def validate_title(self, title_text: str) -> str:
         clean_title = title_text.strip()
 
         if len(clean_title) < 3:
             raise serializers.ValidationError(
-                "The title is too short. It must be at least 3 characters long."
+                "The title is too short. It must be at least 3"
+                " characters long."
             )
 
         if clean_title.isupper():
@@ -53,7 +57,7 @@ class CreateEventSerializer(serializers.ModelSerializer):
 
         return clean_title
 
-    def validate(self, attrs: dict):
+    def validate(self, attrs: dict) -> dict:
         organizer = self.context["request"].user
         location = attrs["location"]
         start_date = attrs["start_date"]
@@ -102,10 +106,10 @@ class PublicDetailEventSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_left_places(self, obj) -> int:
+    def get_left_places(self, obj: Event) -> int:
         return obj.max_members - obj.members_count
 
-    def get_is_registered(self, obj) -> bool:
+    def get_is_registered(self, obj: Event) -> bool:
         request = self.context["request"]
 
         if not request.user.is_authenticated:

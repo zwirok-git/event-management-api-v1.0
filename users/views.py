@@ -1,7 +1,7 @@
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 
-from users.serializers import UserDetailSerializer, SignUpSerializer
+from users.serializers import SignUpSerializer, UserDetailSerializer
 
 
 class SignUpView(generics.CreateAPIView):

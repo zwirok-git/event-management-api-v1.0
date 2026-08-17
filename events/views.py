@@ -1,18 +1,18 @@
 from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, viewsets, status
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from events.models import Event
 from events.serializers import (
-    EventListSerializer,
     CreateEventSerializer,
+    EventListSerializer,
     EventOrganizerDetailSerializer,
-    PublicDetailEventSerializer
+    PublicDetailEventSerializer,
 )
 
 
