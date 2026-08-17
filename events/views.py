@@ -71,7 +71,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
             if event.members.exists():
                 return Response(
-                    {"detail": "Event cannot be updated after registration."},
+                    {"detail": "Event cannot be updated after user registration."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -101,7 +101,7 @@ class EventViewSet(viewsets.ModelViewSet):
 
             if event.members.exists():
                 return Response(
-                    {"detail": "Event cannot be deleted after registration."},
+                    {"detail": "Event cannot be deleted after user registration."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
