@@ -1,0 +1,22 @@
+[tool.ruff]
+extend-exclude = ["**migrations", "tests", "config"]
+line-length = 79
+
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "B",
+    "SIM",
+    "I"
+]
+
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18
+
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
