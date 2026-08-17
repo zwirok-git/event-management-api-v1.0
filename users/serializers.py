@@ -69,10 +69,20 @@ class UserDetailSerializer(serializers.ModelSerializer):
         )
 
 
-class UserEventListSerializer(serializers.ModelSerializer):
+class BaseUserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
             "id",
             "username",
         ]
+
+
+class UserEventListSerializer(BaseUserListSerializer):
+    class Meta(BaseUserListSerializer.Meta):
+        pass
+
+
+class OrganizerInfoSerializer(BaseUserListSerializer):
+    class Meta(BaseUserListSerializer.Meta):
+        pass

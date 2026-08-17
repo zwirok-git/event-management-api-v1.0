@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 from events.models import Event
-from users.serializers import UserEventListSerializer
+from users.serializers import OrganizerInfoSerializer, UserEventListSerializer
 
 
 class CreateEventSerializer(serializers.ModelSerializer):
@@ -80,6 +80,7 @@ class CreateEventSerializer(serializers.ModelSerializer):
 
 
 class PublicDetailEventSerializer(serializers.ModelSerializer):
+    organizer = OrganizerInfoSerializer()
     members_count = serializers.IntegerField(read_only=True)
     start_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
     left_places = serializers.SerializerMethodField()
@@ -130,6 +131,7 @@ class EventOrganizerDetailSerializer(PublicDetailEventSerializer):
 class EventListSerializer(serializers.ModelSerializer):
     members_count = serializers.IntegerField(read_only=True)
     start_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
+    organizer = OrganizerInfoSerializer()
 
     class Meta:
         model = Event

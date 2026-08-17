@@ -30,11 +30,12 @@ class EventViewSet(
         OrderingFilter,
     ]
 
-    filterset_fields = ["location", ]
+    filterset_fields = ["location", "organizer"]
 
     search_fields = [
         "title",
         "location",
+        "organizer"
     ]
 
     ordering_fields = [
