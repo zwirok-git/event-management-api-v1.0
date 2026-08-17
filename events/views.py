@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -9,19 +10,14 @@ from rest_framework.response import Response
 
 from events.models import Event
 from events.serializers import (
-    CreateEventSerializer,
+    EventCreateSerializer,
     EventListSerializer,
     EventOrganizerDetailSerializer,
-    PublicDetailEventSerializer,
+    EventDetailSerializer,
 )
 
 
-class EventViewSet(
-    mixins.CreateModelMixin,
-    mixins.ListModelMixin,
-    mixins.RetrieveModelMixin,
-    viewsets.GenericViewSet
-):
+class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
 
     filter_backends = [
@@ -50,7 +46,7 @@ class EventViewSet(
         if event.organizer == request.user:
             serializer_class = EventOrganizerDetailSerializer
         else:
-            serializer_class = PublicDetailEventSerializer
+            serializer_class = EventDetailSerializer
 
         serializer = serializer_class(
             event,
@@ -59,6 +55,60 @@ class EventViewSet(
 
         return Response(serializer.data)
 
+    def update(self, request, *args, **kwargs):
+        with transaction.atomic():
+            event = (
+                Event.objects
+                .select_for_update()
+                .get(pk=kwargs["pk"])
+            )
+
+            if event.organizer_id != request.user.id:
+                return Response(
+                    {"detail": "Only the organizer can update this event."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if event.members.exists():
+                return Response(
+                    {"detail": "Event cannot be updated after registration."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            serializer = self.get_serializer(
+                event,
+                data=request.data,
+                partial=kwargs.get("partial", False),
+            )
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        with transaction.atomic():
+            event = (
+                Event.objects
+                .select_for_update()
+                .get(pk=kwargs["pk"])
+            )
+
+            if event.organizer_id != request.user.id:
+                return Response(
+                    {"detail": "Only the organizer can delete this event."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if event.members.exists():
+                return Response(
+                    {"detail": "Event cannot be deleted after registration."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            event.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def perform_create(self, serializer):
         serializer.save(organizer=self.request.user)
 
@@ -66,9 +116,9 @@ class EventViewSet(
         if self.action == "list":
             return EventListSerializer
         if self.action == "create":
-            return CreateEventSerializer
+            return EventCreateSerializer
 
-        return PublicDetailEventSerializer
+        return EventDetailSerializer
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):

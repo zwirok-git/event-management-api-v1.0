@@ -4,10 +4,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from events.models import Event
-from users.serializers import OrganizerInfoSerializer, UserEventListSerializer
+from users.serializers import UserOrganizerInfoSerializer, UserEventListSerializer
 
 
-class CreateEventSerializer(serializers.ModelSerializer):
+class EventCreateSerializer(serializers.ModelSerializer):
     start_date = serializers.DateTimeField(
         format="%Y-%m-%d %H:%M",
     )
@@ -83,8 +83,8 @@ class CreateEventSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class PublicDetailEventSerializer(serializers.ModelSerializer):
-    organizer = OrganizerInfoSerializer()
+class EventDetailSerializer(serializers.ModelSerializer):
+    organizer = UserOrganizerInfoSerializer(read_only=True)
     members_count = serializers.IntegerField(read_only=True)
     start_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
     left_places = serializers.SerializerMethodField()
@@ -104,7 +104,6 @@ class PublicDetailEventSerializer(serializers.ModelSerializer):
             "is_registered",
             "organizer"
         ]
-        read_only_fields = fields
 
     def get_left_places(self, obj: Event) -> int:
         return obj.max_members - obj.members_count
@@ -120,14 +119,14 @@ class PublicDetailEventSerializer(serializers.ModelSerializer):
         ).exists()
 
 
-class EventOrganizerDetailSerializer(PublicDetailEventSerializer):
+class EventOrganizerDetailSerializer(EventDetailSerializer):
     members = UserEventListSerializer(
         many=True,
         read_only=True,
     )
 
-    class Meta(PublicDetailEventSerializer.Meta):
-        fields = PublicDetailEventSerializer.Meta.fields + [
+    class Meta(EventDetailSerializer.Meta):
+        fields = EventDetailSerializer.Meta.fields + [
             "members",
         ]
 
@@ -135,7 +134,7 @@ class EventOrganizerDetailSerializer(PublicDetailEventSerializer):
 class EventListSerializer(serializers.ModelSerializer):
     members_count = serializers.IntegerField(read_only=True)
     start_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M")
-    organizer = OrganizerInfoSerializer()
+    organizer = UserOrganizerInfoSerializer()
 
     class Meta:
         model = Event

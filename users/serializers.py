@@ -6,7 +6,7 @@ from rest_framework import serializers
 User = get_user_model()
 
 
-class SignUpSerializer(serializers.ModelSerializer):
+class UserSignUpSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         required=True,
@@ -83,6 +83,6 @@ class UserEventListSerializer(BaseUserListSerializer):
         pass
 
 
-class OrganizerInfoSerializer(BaseUserListSerializer):
+class UserOrganizerInfoSerializer(BaseUserListSerializer):
     class Meta(BaseUserListSerializer.Meta):
         pass
