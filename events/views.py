@@ -2,7 +2,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import mixins, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import AllowAny
@@ -11,9 +11,9 @@ from rest_framework.response import Response
 from events.models import Event
 from events.serializers import (
     EventCreateSerializer,
+    EventDetailSerializer,
     EventListSerializer,
     EventOrganizerDetailSerializer,
-    EventDetailSerializer,
 )
 
 
@@ -65,13 +65,19 @@ class EventViewSet(viewsets.ModelViewSet):
 
             if event.organizer_id != request.user.id:
                 return Response(
-                    {"detail": "Only the organizer can update this event."},
+                    {
+                        "detail":
+                            "Only the organizer can update this event."
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
             if event.members.exists():
                 return Response(
-                    {"detail": "Event cannot be updated after user registration."},
+                    {
+                        "detail":
+                            "Event cannot be updated after user registration."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -95,13 +101,19 @@ class EventViewSet(viewsets.ModelViewSet):
 
             if event.organizer_id != request.user.id:
                 return Response(
-                    {"detail": "Only the organizer can delete this event."},
+                    {
+                        "detail":
+                            "Only the organizer can delete this event."
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
             if event.members.exists():
                 return Response(
-                    {"detail": "Event cannot be deleted after user registration."},
+                    {
+                        "detail":
+                            "Event cannot be deleted after user registration."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -137,33 +149,43 @@ class EventViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def register(self, request, pk=None):
-        event = self.get_object()
-
-        if self.request.user == event.organizer:
-            return Response(
-                {"detail": "Organizer cannot register for their own event."},
-                status=status.HTTP_403_BAD_REQUEST
+        with transaction.atomic():
+            event = (
+                Event.objects
+                .select_for_update()
+                .get(pk=pk)
             )
 
-        if event.members.filter(pk=request.user.pk).exists():
-            return Response(
-                {"detail": "You are already registered for this event."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if event.organizer_id == request.user.id:
+                return Response(
+                    {
+                        "detail":
+                            "Organizer cannot register for their own event."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        if event.members.count() >= event.max_members:
-            return Response(
-                {"detail": "The event is full."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if event.members.filter(pk=request.user.pk).exists():
+                return Response(
+                    {
+                        "detail": "You are already registered for this event."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        if event.start_date <= timezone.now():
-            return Response(
-                {"detail": "Registration for this event is closed."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            if event.members.count() >= event.max_members:
+                return Response(
+                    {"detail": "The event is full."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        event.members.add(request.user)
+            if event.start_date <= timezone.now():
+                return Response(
+                    {"detail": "Registration for this event is closed."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            event.members.add(request.user)
 
         return Response(
             {"detail": "Successfully registered for the event."},

@@ -4,7 +4,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from events.models import Event
-from users.serializers import UserOrganizerInfoSerializer, UserEventListSerializer
+from users.serializers import (
+    UserEventListSerializer,
+    UserOrganizerInfoSerializer,
+)
 
 
 class EventCreateSerializer(serializers.ModelSerializer):
